@@ -22,6 +22,7 @@
 #include "dma.h"
 #include "fatfs.h"
 #include "spi.h"
+#include "usart.h"
 #include "usb_device.h"
 #include "gpio.h"
 
@@ -97,6 +98,8 @@ int main(void)
   MX_GPIO_Init();
   MX_DMA_Init();
   MX_SPI1_Init();
+  MX_FATFS_Init();
+  MX_USART3_UART_Init();
   /* USER CODE BEGIN 2 */
 	m_lock_debug = xSemaphoreCreateMutex();
 	xSemaphoreGive(m_lock_debug);

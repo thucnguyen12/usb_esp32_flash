@@ -57,8 +57,20 @@ void Error_Handler(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
+#define ESP32_RST_Pin GPIO_PIN_2
+#define ESP32_RST_GPIO_Port GPIOE
+#define ESP32_IO0_Pin GPIO_PIN_3
+#define ESP32_IO0_GPIO_Port GPIOE
+#define LED_SUCCESS_Pin GPIO_PIN_9
+#define LED_SUCCESS_GPIO_Port GPIOF
+#define LED_BUSY_Pin GPIO_PIN_10
+#define LED_BUSY_GPIO_Port GPIOF
 #define FLASH_CS_Pin GPIO_PIN_14
 #define FLASH_CS_GPIO_Port GPIOB
+#define KEY1_Pin GPIO_PIN_8
+#define KEY1_GPIO_Port GPIOB
+#define KEY0_Pin GPIO_PIN_9
+#define KEY0_GPIO_Port GPIOB
 /* USER CODE BEGIN Private defines */
 
 /* USER CODE END Private defines */
