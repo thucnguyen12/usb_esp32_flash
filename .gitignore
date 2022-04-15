@@ -12,3 +12,4 @@ Debug/app_msc_cdc/msc_disk.o
 *.rake
 *.md
 *.erb
+Debug

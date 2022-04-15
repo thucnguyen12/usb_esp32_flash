@@ -30,7 +30,18 @@
 #include "app_debug.h"
 #include "fatfs.h"
 #include "lwrb.h"
-#define USB_CDC_TX_RING_BUFFER_SIZE		1024
+#include <stdbool.h>
+#include "FreeRTOSConfig.h"
+#include "semphr.h"
+#include "task.h"
+#include "event_groups.h"
+#include "esp_loader.h"
+#include "example_common.h"
+#include "md5_hash.h"
+#include "app_btn.h"
+#include "utilities.h"
+#include "usart.h" /// needs add change baudrate function
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -41,6 +52,16 @@
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 #define CDC_STACK_SZIE      configMINIMAL_STACK_SIZE
+#define USB_CDC_TX_RING_BUFFER_SIZE		1024
+#define BIT_EVENT_GROUP_KEY_0_PRESSED        (1 << 0)
+#define BIT_EVENT_GROUP_KEY_1_PRESSED        (1 << 1)
+//#define BIT_EVENT_GROUP_BUTTON_2_PRESSED        (1 << 2)
+#define HW_BTN_CONFIG                                       \
+{                                                           \
+    /* PinName       Last state   Idle level*/              \
+    {0, 1, 1},                                              \
+    {1, 1, 1},                                              \
+}
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -50,6 +71,35 @@
 
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN Variables */
+static uint8_t m_buffer[4096];
+static MD5Context_t md5_context;
+static esp_loader_config_t m_loader_cfg =
+{
+    .baud_rate = 115200,
+//    .uart_rx_pin = GPIO_NUM_26,
+//    .uart_tx_pin = GPIO_NUM_25,
+    .reset_trigger_pin = ESP32_RST_Pin,
+    .gpio0_trigger_pin = ESP32_IO0_Pin,
+//    .rx_buffer_size = 4096,
+//    .tx_buffer_size = 4096,
+    .buffer = m_buffer,
+    .buffer_size = 4096,
+    .sync_timeout = 100,
+    .trials = 10,
+    .md5_context = &md5_context
+};
+
+static example_binaries_t m_binary;
+static char m_file_address[128];
+volatile uint32_t led_busy_toggle = 0;
+
+static app_btn_hw_config_t m_button_cfg[] = HW_BTN_CONFIG;
+static EventGroupHandle_t m_button_event_group = NULL;
+static const char *info_file = "info.txt";
+static const char *bootloader_file = "bootloader.bin";
+static const char *application_file = "app.bin";
+static const char *partition_file = "partition-table.bin";
+bool m_disk_is_mounted = false;
 
 /* USER CODE END Variables */
 osThreadId defaultTaskHandle;
@@ -64,6 +114,16 @@ FRESULT flash_res;
 StackType_t  cdc_stack[CDC_STACK_SZIE];
 StaticTask_t cdc_taskdef;
 void cdc_task(void* params);
+
+void flash_task(void *argument);
+static TaskHandle_t m_task_connect_handle = NULL;
+void button_initialize(uint32_t button_num);
+uint32_t btn_read(uint32_t pin);
+void on_btn_pressed(int number, int event, void * pData);
+void on_btn_release(int number, int event, void * pData);
+void on_btn_hold(int number, int event, void * pData);
+static void on_btn_hold_so_long(int index, int event, void * pData);
+static const char *chip_des[] = {"ESP8266", "ESP32", "ESP32S2", "ESP32C3", "ESP32S3", "ESP32C2", "ESP32H2", "UNKNOWN"};
 /* USER CODE END FunctionPrototypes */
 
 void StartDefaultTask(void const * argument);
@@ -159,8 +219,20 @@ void StartDefaultTask(void const * argument)
 
     MX_USB_DEVICE_Init();
     DEBUG_INFO("tusb_init\r\n");
-
-
+    // INIT BUTTON APP
+    app_btn_config_t btn_conf;
+    btn_conf.config = m_button_cfg;
+    btn_conf.btn_count = 2;
+    btn_conf.get_tick_cb = xTaskGetTickCount;
+    btn_conf.btn_initialize = button_initialize;
+    btn_conf.btn_read = btn_read;
+    btn_conf.scan_interval_ms = 50;
+    app_btn_initialize(&btn_conf);
+    app_btn_register_callback(APP_BTN_EVT_HOLD, on_btn_hold, NULL);
+    app_btn_register_callback(APP_BTN_EVT_HOLD_SO_LONG, on_btn_hold_so_long, NULL);
+    app_btn_register_callback(APP_BTN_EVT_PRESSED, on_btn_pressed, NULL);
+    app_btn_register_callback(APP_BTN_EVT_RELEASED, on_btn_release, NULL);
+    // INIT BUTTON END
     flash_res = f_mount(&USERFatFS, USERPath, 1);
 	if (flash_res != FR_OK)
 	{
@@ -169,6 +241,7 @@ void StartDefaultTask(void const * argument)
 		flash_res = f_mount(&USERFatFS, USERPath, 1);
 		if (flash_res == FR_OK)
 		{
+			m_disk_is_mounted = true;
 			DEBUG_INFO ("format disk and mount again\r\n");
 		}
 		else
@@ -178,6 +251,7 @@ void StartDefaultTask(void const * argument)
 	}
 	else
 	{
+		m_disk_is_mounted = true;
 		DEBUG_INFO ("Mount flash ok\r\n");
 	}
 	TCHAR label[32];
@@ -192,12 +266,21 @@ void StartDefaultTask(void const * argument)
     tusb_init();
   // Create CDC task
   (void) xTaskCreateStatic(cdc_task, "cdc", CDC_STACK_SZIE, NULL, configMAX_PRIORITIES-2, cdc_stack, &cdc_taskdef);
-
+  // Create flashtask
+  if (m_task_connect_handle == NULL)
+  {
+	  xTaskCreate(flash_task, "flash_task", 4096, NULL, 10, &m_task_connect_handle);
+  }
   /* Infinite loop */
   for(;;)
   {
-    tud_task();
-    osDelay(1);
+	  app_btn_scan(NULL);
+	  tud_task();
+	  if (led_busy_toggle == 0)
+	  {
+		  HAL_GPIO_WritePin(LED_BUSY_GPIO_Port, LED_BUSY_Pin, GPIO_PIN_SET);
+	  }
+	  osDelay(1);
   }
   /* USER CODE END StartDefaultTask */
 }
@@ -292,4 +375,145 @@ void cdc_task(void* params)
 	    vTaskDelay(pdMS_TO_TICKS(1));
 	}
 }
+
+void flash_task(void *argument)
+{
+	int32_t file_size = 0;
+
+	if (m_disk_is_mounted)
+	{
+		file_size = fatfs_read_file(info_file, (uint8_t*)m_file_address, sizeof(m_file_address) - 1);
+		if (file_size > 0)
+		{
+			/*
+			{
+				"boot": 123456,
+				"app": 1238123,
+				"partition": 1238
+			}
+			*/
+			char *ptr = strstr(m_file_address, "\"boot\":");
+			if (ptr)
+			{
+				ptr += strlen("\"boot\":");
+				m_binary.boot.addr = utilities_get_number_from_string(0, ptr);
+			}
+
+			ptr = strstr(m_file_address, "\"app\":");
+			if (ptr)
+			{
+				ptr += strlen("\"app\":");
+				m_binary.app.addr = utilities_get_number_from_string(0, ptr);
+			}
+
+			ptr = strstr(m_file_address, "\"partition\":");
+			if (ptr)
+			{
+				ptr += strlen("\"partition\":");
+				m_binary.part.addr = utilities_get_number_from_string(0, ptr);
+			}
+		}
+
+		file_size = fatfs_get_file_size(bootloader_file);
+		if (file_size > -1)
+		{
+			m_binary.boot.size = file_size;
+			m_binary.boot.file_name = bootloader_file;
+		}
+
+		file_size = fatfs_get_file_size(application_file);
+		if (file_size > -1)
+		{
+			m_binary.app.size = file_size;
+			m_binary.app.file_name = application_file;
+		}
+
+		file_size = fatfs_get_file_size(partition_file);
+		if (file_size > -1)
+		{
+			m_binary.part.size = file_size;
+			m_binary.part.file_name = partition_file;
+		}
+
+		DEBUG_INFO("Bootloader offset 0x%08X, app 0x%08X, partition table 0x%08X\r\n", m_binary.boot.addr, m_binary.app.addr,  m_binary.part.addr);
+		DEBUG_INFO("Bootloader %u bytes, app %u bytes, partition table %u bytes\r\n", m_binary.boot.size, m_binary.app.size,  m_binary.part.size);
+	}
+    m_loader_cfg.gpio0_trigger_port = (uint32_t)ESP32_IO0_GPIO_Port;
+    m_loader_cfg.reset_trigger_port = (uint32_t)ESP32_RST_GPIO_Port;
+    m_loader_cfg.uart_addr = (uint32_t)USART3;
+    esp_loader_error_t err;
+
+    // Clear led busy & success, set led error
+    HAL_GPIO_WritePin(LED_BUSY_GPIO_Port, LED_BUSY_Pin, GPIO_PIN_SET);
+    HAL_GPIO_WritePin(LED_SUCCESS_GPIO_Port, LED_SUCCESS_Pin, GPIO_PIN_SET);
+
+}
+
+
+
+void button_initialize(uint32_t button_num)
+{
+
+}
+
+uint32_t btn_read(uint32_t pin)
+{
+    if (pin == 0)
+    {
+        return HAL_GPIO_ReadPin(KEY0_GPIO_Port, KEY0_Pin);
+    }
+//    else if (pin == 1)
+//    {
+	return HAL_GPIO_ReadPin(KEY1_GPIO_Port, KEY1_Pin);
+//    }
+//    return HAL_GPIO_ReadPin(KEY3_GPIO_Port, KEY3_Pin);
+}
+
+void on_btn_pressed(int number, int event, void * pData)
+{
+    DEBUG_INFO("On button %d pressed\r\n", number);
+    if (number == 0)
+    {
+        xEventGroupSetBits(m_button_event_group, BIT_EVENT_GROUP_KEY_0_PRESSED);
+    }
+    else if (number == 1)
+    {
+        xEventGroupSetBits(m_button_event_group, BIT_EVENT_GROUP_KEY_1_PRESSED);
+    }
+    else
+    {
+        //xEventGroupSetBits(m_button_event_group, BIT_EVENT_GROUP_BUTTON_1_PRESSED);
+    }
+}
+
+void on_btn_release(int number, int event, void * pData)
+{
+    DEBUG_VERBOSE("On button %d release\r\n", number);
+    if (number == 0)
+    {
+        xEventGroupClearBits(m_button_event_group, BIT_EVENT_GROUP_KEY_0_PRESSED);
+    }
+    else if (number == 1)
+    {
+        xEventGroupClearBits(m_button_event_group, BIT_EVENT_GROUP_KEY_1_PRESSED);
+    }
+    else if (number == 2)
+    {
+  //      xEventGroupClearBits(m_button_event_group, BIT_EVENT_GROUP_BUTTON_2_PRESSED);
+    }
+}
+
+void on_btn_hold(int number, int event, void * pData)
+{
+    DEBUG_INFO("On button %d pair hold, enter pair mode\r\n", number);
+}
+
+
+static void on_btn_hold_so_long(int index, int event, void * pData)
+{
+    DEBUG_INFO("Button hold so long\r\n");
+}
+
+
+
 /* USER CODE END Application */

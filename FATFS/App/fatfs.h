@@ -40,6 +40,9 @@ void MX_FATFS_Init(void);
 
 /* USER CODE BEGIN Prototypes */
 
+uint32_t fatfs_read_file(const char *file, uint8_t *data, uint32_t size);
+int32_t fatfs_read_file_at_pos(const char *file, uint8_t *data, uint32_t size, uint32_t p);
+int32_t fatfs_get_file_size(const char *file);
 /* USER CODE END Prototypes */
 #ifdef __cplusplus
 }
