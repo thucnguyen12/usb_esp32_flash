@@ -23,6 +23,8 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "tusb.h"
+#include "app_debug.h"
+#include "usart.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -60,7 +62,6 @@ extern PCD_HandleTypeDef hpcd_USB_OTG_FS;
 extern DMA_HandleTypeDef hdma_spi1_rx;
 extern DMA_HandleTypeDef hdma_spi1_tx;
 extern SPI_HandleTypeDef hspi1;
-extern UART_HandleTypeDef huart3;
 extern TIM_HandleTypeDef htim2;
 
 /* USER CODE BEGIN EV */
@@ -166,6 +167,59 @@ void DebugMon_Handler(void)
 /******************************************************************************/
 
 /**
+  * @brief This function handles DMA1 stream1 global interrupt.
+  */
+void DMA1_Stream1_IRQHandler(void)
+{
+  /* USER CODE BEGIN DMA1_Stream1_IRQn 0 */
+    if (LL_DMA_IsActiveFlag_HT1(DMA1))
+    {
+//        DEBUG_PRINTF("USART1 HT\r\n");
+        LL_DMA_ClearFlag_HT1(DMA1);
+        // DEBUG_ISR("HT RX cplt\r\n");
+		usart3_rx_complete_callback(true);
+    }
+	if (LL_DMA_IsActiveFlag_TC1(DMA1))
+	{
+		LL_DMA_ClearFlag_TC1(DMA1);
+		/* Call function Reception complete Callback */
+        // DEBUG_ISR("TC RX cplt\r\n");
+		usart3_rx_complete_callback(true);
+        usart3_start_dma_rx();
+	}
+	else if (LL_DMA_IsActiveFlag_TE1(DMA1))
+	{
+		/* Call Error function */
+        DEBUG_ISR("USART3 Error\r\n");
+		usart3_rx_complete_callback(false);
+		// USART_TransferError_Callback();
+	}
+  /* USER CODE END DMA1_Stream1_IRQn 0 */
+
+  /* USER CODE BEGIN DMA1_Stream1_IRQn 1 */
+
+  /* USER CODE END DMA1_Stream1_IRQn 1 */
+}
+
+/**
+  * @brief This function handles DMA1 stream3 global interrupt.
+  */
+void DMA1_Stream3_IRQHandler(void)
+{
+  /* USER CODE BEGIN DMA1_Stream3_IRQn 0 */
+    if(LL_DMA_IsActiveFlag_TC4(DMA1))
+    {
+        LL_DMA_ClearFlag_TC4(DMA1);
+        usart3_tx_cplt_cb();
+    }
+  /* USER CODE END DMA1_Stream3_IRQn 0 */
+
+  /* USER CODE BEGIN DMA1_Stream3_IRQn 1 */
+
+  /* USER CODE END DMA1_Stream3_IRQn 1 */
+}
+
+/**
   * @brief This function handles TIM2 global interrupt.
   */
 void TIM2_IRQHandler(void)
@@ -199,9 +253,33 @@ void SPI1_IRQHandler(void)
 void USART3_IRQHandler(void)
 {
   /* USER CODE BEGIN USART3_IRQn 0 */
+    if (LL_USART_IsEnabledIT_IDLE(USART3) && LL_USART_IsActiveFlag_IDLE(USART3))
+    {
+        // DEBUG_ISR("IDLE\r\n");
+        LL_USART_ClearFlag_IDLE(USART3);        /* Clear IDLE line flag */
+        usart3_rx_complete_callback(true);
+    }
 
+    if (LL_USART_IsActiveFlag_ORE(USART3))
+    {
+        DEBUG_ISR("USART3 Overrun\r\n");
+        uint32_t tmp = USART3->DR;
+        (void)tmp;
+        LL_USART_ClearFlag_ORE(USART3);
+    }
+
+    if (LL_USART_IsActiveFlag_FE(USART3))
+    {
+        DEBUG_ISR("USART3 Frame error\r\n");
+        LL_USART_ClearFlag_FE(USART3);
+    }
+
+    if (LL_USART_IsActiveFlag_NE(USART3))
+    {
+        DEBUG_ISR("Noise error\r\n");
+        LL_USART_ClearFlag_NE(USART3);
+    }
   /* USER CODE END USART3_IRQn 0 */
-  HAL_UART_IRQHandler(&huart3);
   /* USER CODE BEGIN USART3_IRQn 1 */
 
   /* USER CODE END USART3_IRQn 1 */
