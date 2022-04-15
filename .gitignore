@@ -1,0 +1,14 @@
+﻿*.prefs
+*.xml
+Debug/app_msc_cdc/msc_disk.o
+*.su
+*.d
+*.o
+*.mk
+*.py
+*.dump
+*.ld
+*.rb
+*.rake
+*.md
+*.erb
