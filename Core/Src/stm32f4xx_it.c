@@ -207,9 +207,9 @@ void DMA1_Stream1_IRQHandler(void)
 void DMA1_Stream3_IRQHandler(void)
 {
   /* USER CODE BEGIN DMA1_Stream3_IRQn 0 */
-    if(LL_DMA_IsActiveFlag_TC4(DMA1))
+    if(LL_DMA_IsActiveFlag_TC3(DMA1))
     {
-        LL_DMA_ClearFlag_TC4(DMA1);
+        LL_DMA_ClearFlag_TC3(DMA1);
         usart3_tx_cplt_cb();
     }
   /* USER CODE END DMA1_Stream3_IRQn 0 */
@@ -245,6 +245,19 @@ void SPI1_IRQHandler(void)
   /* USER CODE BEGIN SPI1_IRQn 1 */
 
   /* USER CODE END SPI1_IRQn 1 */
+}
+
+/**
+  * @brief This function handles USART2 global interrupt.
+  */
+void USART2_IRQHandler(void)
+{
+  /* USER CODE BEGIN USART2_IRQn 0 */
+
+  /* USER CODE END USART2_IRQn 0 */
+  /* USER CODE BEGIN USART2_IRQn 1 */
+
+  /* USER CODE END USART2_IRQn 1 */
 }
 
 /**

@@ -100,11 +100,12 @@ int main(void)
   MX_SPI1_Init();
   MX_FATFS_Init();
   MX_USART3_UART_Init();
+  MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
 	m_lock_debug = xSemaphoreCreateMutex();
 	xSemaphoreGive(m_lock_debug);
 	app_debug_init(sys_get_ms, lock_debug);
-	app_debug_register_callback_print(rtt_tx);
+	app_debug_register_callback_print(usart_logger_put);
 
   /* USER CODE END 2 */
 

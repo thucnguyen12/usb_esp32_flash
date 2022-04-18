@@ -23,7 +23,7 @@
 #include "task.h"
 #include "usart.h"
 #include "app_debug.h"
-// #define SERIAL_DEBUG_ENABLE
+#define SERIAL_DEBUG_ENABLE
 
 //static UART_HandleTypeDef *uart;
 //static GPIO_TypeDef* gpio_port_io0, *gpio_port_rst;
@@ -51,12 +51,12 @@ static void serial_debug_print(const uint8_t *data, uint16_t size, bool write)
 
     if(write_prev != write) {
         write_prev = write;
-        printf("\n--- %s ---\n", write ? "WRITE" : "READ");
+        DEBUG_RAW("\n--- %s ---\n", write ? "WRITE" : "READ");
     }
 
     for(uint32_t i = 0; i < size; i++) {
         dec_to_hex_str(data[i], hex_str);
-        printf("%s ", hex_str);
+        DEBUG_RAW("%s ", hex_str);
     }
 }
 

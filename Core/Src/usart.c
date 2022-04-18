@@ -41,15 +41,77 @@ static uint32_t m_last_usart3_baud = 115200;
 lwrb_t m_ringbuffer_usart3_rx;
 static volatile bool m_usart3_rx_ongoing = false;
 static SemaphoreHandle_t m_sem_uart3_tx;
+
+
 /* USER CODE END 0 */
 
+/* USART2 init function */
+
+void MX_USART2_UART_Init(void)
+{
+
+  /* USER CODE BEGIN USART2_Init 0 */
+
+  /* USER CODE END USART2_Init 0 */
+
+  LL_USART_InitTypeDef USART_InitStruct = {0};
+
+  LL_GPIO_InitTypeDef GPIO_InitStruct = {0};
+
+  /* Peripheral clock enable */
+  LL_APB1_GRP1_EnableClock(LL_APB1_GRP1_PERIPH_USART2);
+
+  LL_AHB1_GRP1_EnableClock(LL_AHB1_GRP1_PERIPH_GPIOA);
+  /**USART2 GPIO Configuration
+  PA2   ------> USART2_TX
+  PA3   ------> USART2_RX
+  */
+  GPIO_InitStruct.Pin = LL_GPIO_PIN_2|LL_GPIO_PIN_3;
+  GPIO_InitStruct.Mode = LL_GPIO_MODE_ALTERNATE;
+  GPIO_InitStruct.Speed = LL_GPIO_SPEED_FREQ_VERY_HIGH;
+  GPIO_InitStruct.OutputType = LL_GPIO_OUTPUT_PUSHPULL;
+  GPIO_InitStruct.Pull = LL_GPIO_PULL_NO;
+  GPIO_InitStruct.Alternate = LL_GPIO_AF_7;
+  LL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+  /* USART2 interrupt Init */
+  NVIC_SetPriority(USART2_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(),5, 0));
+  NVIC_EnableIRQ(USART2_IRQn);
+
+  /* USER CODE BEGIN USART2_Init 1 */
+
+  /* USER CODE END USART2_Init 1 */
+  USART_InitStruct.BaudRate = 115200;
+  USART_InitStruct.DataWidth = LL_USART_DATAWIDTH_8B;
+  USART_InitStruct.StopBits = LL_USART_STOPBITS_1;
+  USART_InitStruct.Parity = LL_USART_PARITY_NONE;
+  USART_InitStruct.TransferDirection = LL_USART_DIRECTION_TX_RX;
+  USART_InitStruct.HardwareFlowControl = LL_USART_HWCONTROL_NONE;
+  USART_InitStruct.OverSampling = LL_USART_OVERSAMPLING_16;
+  LL_USART_Init(USART2, &USART_InitStruct);
+  LL_USART_ConfigAsyncMode(USART2);
+  LL_USART_Enable(USART2);
+  /* USER CODE BEGIN USART2_Init 2 */
+//	LL_USART_DisableIT_TXE(USART2);
+//	LL_USART_DisableIT_TC(USART2);
+//	LL_USART_EnableIT_RXNE(USART2);
+////	LL_USART_EnableIT_ERROR(USART1);
+//	LL_USART_Enable(USART2);
+  /* USER CODE END USART2_Init 2 */
+
+}
 /* USART3 init function */
 
 void MX_USART3_UART_Init(void)
 {
 
   /* USER CODE BEGIN USART3_Init 0 */
-
+	if (m_sem_uart3_tx == NULL)
+	{
+	    m_sem_uart3_tx = xSemaphoreCreateBinary();
+	}
+    lwrb_init(&m_ringbuffer_usart3_rx, m_usart3_rx_buffer, sizeof(m_usart3_rx_buffer));
+    lwrb_reset(&m_ringbuffer_usart3_rx);
   /* USER CODE END USART3_Init 0 */
 
   LL_USART_InitTypeDef USART_InitStruct = {0};
@@ -130,15 +192,31 @@ void MX_USART3_UART_Init(void)
   LL_USART_ConfigAsyncMode(USART3);
   LL_USART_Enable(USART3);
   /* USER CODE BEGIN USART3_Init 2 */
-
+  LL_DMA_EnableIT_HT(DMA1, LL_DMA_STREAM_1);
+  LL_DMA_EnableIT_TC(DMA1, LL_DMA_STREAM_1);
+  LL_DMA_EnableIT_TE(DMA1, LL_DMA_STREAM_1);
+  LL_DMA_EnableIT_TC(DMA1, LL_DMA_STREAM_3);
+  LL_DMA_EnableIT_TE(DMA1, LL_DMA_STREAM_3);
+  LL_USART_EnableIT_IDLE(USART3);
+  usart3_hw_uart_rx_raw(m_usart3_rx_dma_buffer, sizeof(m_usart3_rx_dma_buffer));
   /* USER CODE END USART3_Init 2 */
 
 }
 
 /* USER CODE BEGIN 1 */
+uint32_t usart_logger_put(const void *buffer, uint32_t size)
+{
+    uint8_t *data = (uint8_t*)buffer;
+    for (uint32_t i = 0; i < size; i++)
+    {
+        LL_USART_TransmitData8(USART2, data[i]);
+        while (0 == LL_USART_IsActiveFlag_TXE(USART2));
+    }
+    return size;
+}
 static void usart3_transmit_dma(uint8_t *data, uint32_t size)
 {
-    LL_DMA_ConfigTransfer(DMA1, LL_DMA_STREAM_4,
+    LL_DMA_ConfigTransfer(DMA1, LL_DMA_STREAM_3,
                         LL_DMA_DIRECTION_MEMORY_TO_PERIPH |
                         LL_DMA_PRIORITY_HIGH              |
                         LL_DMA_MODE_NORMAL                |
@@ -146,17 +224,17 @@ static void usart3_transmit_dma(uint8_t *data, uint32_t size)
                         LL_DMA_MEMORY_INCREMENT           |
                         LL_DMA_PDATAALIGN_BYTE            |
                         LL_DMA_MDATAALIGN_BYTE);
-    LL_DMA_ConfigAddresses(DMA1, LL_DMA_STREAM_4,
+    LL_DMA_ConfigAddresses(DMA1, LL_DMA_STREAM_3,
                          (uint32_t)data,
                          LL_USART_DMA_GetRegAddr(USART3),
-                         LL_DMA_GetDataTransferDirection(DMA1, LL_DMA_STREAM_4));
-    LL_DMA_SetDataLength(DMA1, LL_DMA_STREAM_4, size);
+                         LL_DMA_GetDataTransferDirection(DMA1, LL_DMA_STREAM_3));
+    LL_DMA_SetDataLength(DMA1, LL_DMA_STREAM_3, size);
 
       /* Enable DMA TX Interrupt */
     LL_USART_EnableDMAReq_TX(USART3);
 
     /* Enable DMA Channel Tx */
-    LL_DMA_EnableStream(DMA1, LL_DMA_STREAM_4);
+    LL_DMA_EnableStream(DMA1, LL_DMA_STREAM_3);
 }
 
 uint32_t usart_get_bytes(uint32_t uart_addr, uint8_t *data, uint32_t size, uint32_t timeout)
@@ -219,18 +297,18 @@ void usart_change_baudrate(uint32_t uart_addr, uint32_t baudrate)
             m_last_usart3_baud = baudrate;
 
             // TX
-            LL_DMA_DisableIT_TC(DMA1, LL_DMA_STREAM_4);
-            LL_DMA_DisableIT_TE(DMA1, LL_DMA_STREAM_4);
+            LL_DMA_DisableIT_TC(DMA1, LL_DMA_STREAM_3);
+            LL_DMA_DisableIT_TE(DMA1, LL_DMA_STREAM_3);
 
             // RX
             LL_DMA_DisableIT_HT(DMA1, LL_DMA_STREAM_1);
             LL_DMA_DisableIT_TC(DMA1, LL_DMA_STREAM_1);
             LL_DMA_DisableIT_TE(DMA1, LL_DMA_STREAM_1);
 
-            LL_DMA_ClearFlag_TC4(DMA1);
-            LL_DMA_ClearFlag_HT4(DMA1);
+            LL_DMA_ClearFlag_TC3(DMA1);
+            LL_DMA_ClearFlag_HT3(DMA1);
 
-            LL_DMA_ClearFlag_TE4(DMA1);
+            LL_DMA_ClearFlag_TE3(DMA1);
 
             NVIC_DisableIRQ(USART3_IRQn);
             LL_USART_Disable(USART3);

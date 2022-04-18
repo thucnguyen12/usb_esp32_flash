@@ -56,7 +56,7 @@ DWORD get_fattime(void)
 
 uint32_t fatfs_read_file(const char *file, uint8_t *data, uint32_t size)
 {
-    uint32_t byte_read = 0;
+    UINT byte_read = 0;
 //    if (!m_sdcard_is_mounted)
 //    {
 //        goto end;
@@ -92,7 +92,7 @@ end:
 
 int32_t fatfs_read_file_at_pos(const char *file, uint8_t *data, uint32_t size, uint32_t pos)
 {
-    uint32_t byte_read = 0;
+    UINT byte_read = 0;
 //    if (!m_sdcard_is_mounted)
 //    {
 //        goto end;

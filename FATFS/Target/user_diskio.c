@@ -137,7 +137,7 @@ DSTATUS USER_status (
 )
 {
   /* USER CODE BEGIN STATUS */
-    Stat = STA_NOINIT;
+    Stat = RES_OK;
     return Stat;
   /* USER CODE END STATUS */
 }

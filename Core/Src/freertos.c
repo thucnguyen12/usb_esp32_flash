@@ -175,7 +175,7 @@ void MX_FREERTOS_Init(void) {
 
   /* Create the thread(s) */
   /* definition and creation of defaultTask */
-  osThreadDef(defaultTask, StartDefaultTask, osPriorityNormal, 0, 1024);
+  osThreadDef(defaultTask, StartDefaultTask, osPriorityHigh, 0, 1024);
   defaultTaskHandle = osThreadCreate(osThread(defaultTask), NULL);
 
   /* USER CODE BEGIN RTOS_THREADS */
@@ -216,7 +216,7 @@ void StartDefaultTask(void const * argument)
     GPIO_InitStruct.Pull = GPIO_NOPULL;
     GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
     HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-
+    m_button_event_group = xEventGroupCreate(); /// create group buttons
     MX_USB_DEVICE_Init();
     DEBUG_INFO("tusb_init\r\n");
     // INIT BUTTON APP
@@ -227,6 +227,7 @@ void StartDefaultTask(void const * argument)
     btn_conf.btn_initialize = button_initialize;
     btn_conf.btn_read = btn_read;
     btn_conf.scan_interval_ms = 50;
+    app_btn_initialize(&btn_conf);
 //    app_btn_initialize(&btn_conf);
     app_btn_register_callback(APP_BTN_EVT_HOLD, on_btn_hold, NULL);
     app_btn_register_callback(APP_BTN_EVT_HOLD_SO_LONG, on_btn_hold_so_long, NULL);
@@ -265,22 +266,22 @@ void StartDefaultTask(void const * argument)
 
     tusb_init();
   // Create CDC task
-  (void) xTaskCreateStatic(cdc_task, "cdc", CDC_STACK_SZIE, NULL, configMAX_PRIORITIES-2, cdc_stack, &cdc_taskdef);
+  (void) xTaskCreateStatic(cdc_task, "cdc", CDC_STACK_SZIE, NULL, 1, cdc_stack, &cdc_taskdef);// pio =2
   // Create flashtask
   if (m_task_connect_handle == NULL)
   {
-	  xTaskCreate(flash_task, "flash_task", 4096, NULL, 6, &m_task_connect_handle);
+	  xTaskCreate(flash_task, "flash_task", 4096, NULL, 0, &m_task_connect_handle);// pio =1
   }
   /* Infinite loop */
   for(;;)
   {
 	  app_btn_scan(NULL);
-	  tud_task();
+	 // app_debug_isr_ringbuffer_flush();
 	  if (led_busy_toggle == 0)
 	  {
 		  HAL_GPIO_WritePin(LED_BUSY_GPIO_Port, LED_BUSY_Pin, GPIO_PIN_SET);
 	  }
-	  osDelay(1);
+	  osDelay(10);
   }
   /* USER CODE END StartDefaultTask */
 }
@@ -306,6 +307,7 @@ void cdc_task(void* params)
 	{
 //	    // connected() check for DTR bit
 //	    // Most but not all terminal client set this when making connection
+		tud_task();
 	    if (tud_cdc_connected())
 		{
 	    	if (m_cdc_debug_register == false)
@@ -450,7 +452,7 @@ void flash_task(void *argument)
     HAL_GPIO_WritePin(LED_SUCCESS_GPIO_Port, LED_SUCCESS_Pin, GPIO_PIN_SET);
     for (;;)
 	{
-    	DEBUG_INFO("ENTER flash TASK\r\n");
+    	DEBUG_INFO("ENTER flash LOOP\r\n");
     	if (led_busy_toggle > 10)
 		{
 			led_busy_toggle = 1;
@@ -460,6 +462,7 @@ void flash_task(void *argument)
 								pdTRUE,
 								pdFALSE,
 								portMAX_DELAY);
+		DEBUG_INFO("KEY IS PRESSED\r\n");
         HAL_GPIO_WritePin(LED_BUSY_GPIO_Port, LED_BUSY_Pin, GPIO_PIN_SET);
         HAL_GPIO_WritePin(LED_SUCCESS_GPIO_Port, LED_SUCCESS_Pin, GPIO_PIN_SET);
         uint32_t now = xTaskGetTickCount();
@@ -552,7 +555,7 @@ void flash_task(void *argument)
 		}
 		vTaskDelay(1000);
 	}
-
+//    vTaskDelay(1000);
 }
 
 

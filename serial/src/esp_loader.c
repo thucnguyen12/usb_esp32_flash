@@ -22,6 +22,7 @@
 #include <string.h>
 #include <assert.h>
 #include <stdio.h>
+#include "app_debug.h"
 
 #ifndef MAX
 #define MAX(a, b) ((a) > (b)) ? (a) : (b)
@@ -96,6 +97,7 @@ esp_loader_error_t esp_loader_connect(void *config)
         {
             if (--trials == 0)
             {
+            	DEBUG_INFO("ESP TIME OUT\r\n");
                 return ESP_LOADER_ERROR_TIMEOUT;
             }
             loader_port_delay_ms(((esp_loader_config_t*)config), 100);
