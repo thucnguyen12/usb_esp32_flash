@@ -303,7 +303,9 @@ esp_loader_error_t flash_binary_stm32(void *config, partition_attr_t *part)
         DEBUG_INFO("Port[%u] Flash verified\r\n", ((esp_loader_config_t*)config)->uart_addr);
         break;
     #endif
+	break;
     }
+
     return ESP_LOADER_SUCCESS;
 }
 
