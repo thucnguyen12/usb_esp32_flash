@@ -272,7 +272,8 @@ esp_loader_error_t esp_loader_flash_start(void *config, uint32_t offset, uint32_
     }
     else
     {
-        loader_port_debug_print(config, "Flash size detection failed, falling back to default\r\n");
+        //loader_port_debug_print(config, "Flash size detection failed, falling back to default\r\n");
+        DEBUG_ERROR("Flash size detection failed, falling back to default\r\n");
     }
 
     init_md5(((esp_loader_config_t*)config), offset, image_size);

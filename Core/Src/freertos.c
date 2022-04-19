@@ -541,7 +541,7 @@ void flash_task(void *argument)
 			xEventGroupClearBits(m_button_event_group,
 								BIT_EVENT_GROUP_KEY_0_PRESSED);
 			DEBUG_INFO("Total flash write time %us\r\n", (xTaskGetTickCount() - now)/1000);
-
+			HAL_GPIO_WritePin(GPIOF, LED_SUCCESS_Pin, GPIO_PIN_RESET);
 			if (led_busy_toggle > 10)
 			{
 				led_busy_toggle = 1;
