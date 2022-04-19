@@ -19,6 +19,7 @@
 #include <stddef.h>
 #include <string.h>
 #include <stdio.h>
+#include "app_debug.h"
 
 #define CMD_SIZE(cmd) (sizeof(cmd) - sizeof(command_common_t))
 
@@ -170,7 +171,7 @@ static esp_loader_error_t send_cmd(void *config, const void *cmd_data, uint32_t 
 {
     response_t response;
     command_t command = (command_t)(((command_common_t *)cmd_data)->command);
-    
+//    DEBUG_INFO("SEND SYNC CMD BEGIN\r\n");
     loader_flush_rx_data(config);
     RETURN_ON_ERROR(SLIP_send_delimiter(config));
     RETURN_ON_ERROR(SLIP_send(((esp_loader_config_t*)config), (const uint8_t *)cmd_data, size));
@@ -251,14 +252,16 @@ static esp_loader_error_t check_response(void *config, command_t cmd, uint32_t *
 {
     esp_loader_error_t err;
     common_response_t *response = (common_response_t *)resp;
-
+//    DEBUG_INFO ("CHECK RESPONSE BEGIN \r\n");
     do
     {
         err = SLIP_receive_packet(((esp_loader_config_t*)config), resp, resp_size);
         if (err != ESP_LOADER_SUCCESS)
         {
             return err;
+            DEBUG_INFO("RECIEVE PACKET FAIL: %d\r\n", err);
         }
+
     } while ((response->direction != READ_DIRECTION) || (response->command != cmd));
 
     response_status_t *status = (response_status_t *)((uint8_t *)resp + resp_size - sizeof(response_status_t));

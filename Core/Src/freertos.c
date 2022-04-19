@@ -462,7 +462,7 @@ void flash_task(void *argument)
 								pdTRUE,
 								pdFALSE,
 								portMAX_DELAY);
-		DEBUG_INFO("KEY IS PRESSED\r\n");
+//		DEBUG_INFO("KEY IS PRESSED\r\n");
         HAL_GPIO_WritePin(LED_BUSY_GPIO_Port, LED_BUSY_Pin, GPIO_PIN_SET);
         HAL_GPIO_WritePin(LED_SUCCESS_GPIO_Port, LED_SUCCESS_Pin, GPIO_PIN_SET);
         uint32_t now = xTaskGetTickCount();
@@ -491,7 +491,7 @@ void flash_task(void *argument)
 				DEBUG_INFO("Connected to target %s\r\n", chip_des[m_loader_cfg.target]);
 			}
 			DEBUG_INFO("Change baudrate\r\n");
-			err = esp_loader_change_baudrate(&m_loader_cfg, 921600);
+			err = esp_loader_change_baudrate(&m_loader_cfg, 115200);
 			if (err == ESP_LOADER_ERROR_UNSUPPORTED_FUNC)
 			{
 				DEBUG_ERROR("ESP8266 does not support change baudrate command\r\n");
@@ -502,7 +502,7 @@ void flash_task(void *argument)
 			}
 			else
 			{
-				err = loader_port_change_baudrate(&m_loader_cfg, 921600);
+				err = loader_port_change_baudrate(&m_loader_cfg, 115200);
 				if (err != ESP_LOADER_SUCCESS)
 				{
 					DEBUG_ERROR("Unable to change baud rate\r\n");
@@ -516,6 +516,7 @@ void flash_task(void *argument)
 			DEBUG_INFO("Flash bootloader\r\n");
 			if (flash_binary_stm32(&m_loader_cfg, &m_binary.boot) != ESP_LOADER_SUCCESS)
 			{
+				DEBUG_INFO("FLASH BOOTLOADER FAIL \r\n");
 				xEventGroupClearBits(m_button_event_group,
 									BIT_EVENT_GROUP_KEY_0_PRESSED);
 				break;

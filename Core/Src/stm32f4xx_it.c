@@ -271,6 +271,7 @@ void USART3_IRQHandler(void)
         // DEBUG_ISR("IDLE\r\n");
         LL_USART_ClearFlag_IDLE(USART3);        /* Clear IDLE line flag */
         usart3_rx_complete_callback(true);
+
     }
 
     if (LL_USART_IsActiveFlag_ORE(USART3))

@@ -73,7 +73,14 @@ static void serial_debug_print(const uint8_t *data, uint16_t size, bool write)
 esp_loader_error_t loader_port_serial_write(void *config, const uint8_t *data, uint16_t size, uint32_t timeout)
 {
     esp_loader_config_t *tmp = (esp_loader_config_t*)config;
-    serial_debug_print(data, size, true);
+//    serial_debug_print(data, size, true);
+//    DEBUG_INFO("SERIAL WRITING \r\n");
+//    uint8_t hex_str[3];
+//	for(uint32_t i = 0; i < size; i++)
+//	{
+//			dec_to_hex_str(data[i], hex_str);
+//			DEBUG_RAW("%s \r\n", hex_str);
+//	}
     (void)timeout;
 
     usart_send_bytes(tmp->uart_addr, (uint8_t *)data, size);
@@ -89,8 +96,14 @@ esp_loader_error_t loader_port_serial_read(void *config, uint8_t *data, uint16_t
 
     HAL_StatusTypeDef err = (HAL_StatusTypeDef)usart_get_bytes(tmp->uart_addr, data, size, timeout);
 
-    serial_debug_print(data, size, false);
-
+//    serial_debug_print(data, size, false);
+//    DEBUG_INFO("SERIAL READING \r\n");
+//    uint8_t hex_str[3];
+//    for(uint32_t i = 0; i < size; i++)
+//    {
+//            dec_to_hex_str(data[i], hex_str);
+//            DEBUG_RAW("%s \r\n", hex_str);
+//    }
     if (err == HAL_OK) 
     {
         return ESP_LOADER_SUCCESS;

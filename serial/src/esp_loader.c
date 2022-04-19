@@ -97,7 +97,6 @@ esp_loader_error_t esp_loader_connect(void *config)
         {
             if (--trials == 0)
             {
-            	DEBUG_INFO("ESP TIME OUT\r\n");
                 return ESP_LOADER_ERROR_TIMEOUT;
             }
             loader_port_delay_ms(((esp_loader_config_t*)config), 100);
@@ -255,6 +254,7 @@ static esp_loader_error_t detect_flash_size(void *config, size_t *flash_size)
 
 esp_loader_error_t esp_loader_flash_start(void *config, uint32_t offset, uint32_t image_size, uint32_t block_size)
 {
+	DEBUG_INFO ("ESP LOADER FLASH START..\r\n");
     uint32_t blocks_to_write = (image_size + block_size - 1) / block_size;
     uint32_t erase_size = block_size * blocks_to_write;
     ((esp_loader_config_t*)config)->flash_write_size = block_size;
@@ -262,6 +262,7 @@ esp_loader_error_t esp_loader_flash_start(void *config, uint32_t offset, uint32_
     size_t flash_size = 0;
     if (detect_flash_size(((esp_loader_config_t*)config), &flash_size) == ESP_LOADER_SUCCESS)
     {
+    	DEBUG_INFO("DETECT FLASH SIZE OK \r\n");
         if (image_size > flash_size)
         {
             return ESP_LOADER_ERROR_IMAGE_SIZE;

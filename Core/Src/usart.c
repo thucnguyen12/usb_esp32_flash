@@ -410,5 +410,6 @@ void usart3_rx_complete_callback(bool status)
     {
         m_usart3_rx_ongoing = false;
     }
+//    DEBUG_ISR("DATA NHAN DC LA:%s\r\n", m_ringbuffer_usart3_rx.buff);
 }
 /* USER CODE END 1 */

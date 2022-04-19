@@ -5,7 +5,7 @@
 #include <ctype.h>
 
 #if DEBUG_ISR_ENABLE
-#include "lwrb/lwrb.h"
+#include "lwrb.h"
 #endif
 
 #define APP_DEBUG_NUMBER_OF_DEBUG_PORT 4

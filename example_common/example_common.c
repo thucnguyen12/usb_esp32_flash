@@ -219,6 +219,7 @@ esp_loader_error_t flash_binary_stm32(void *config, partition_attr_t *part)
     uint32_t buffer_size;
     uint8_t *payload = ((esp_loader_config_t*)config)->buffer;
     buffer_size = ((esp_loader_config_t*)config)->buffer_size;
+    int last_progress = 0;
     while (retry)
     {
         retry--;
@@ -238,12 +239,13 @@ esp_loader_error_t flash_binary_stm32(void *config, partition_attr_t *part)
 
         while (tmp_size > 0)
         {
+
             size_t to_read = MIN(tmp_size, buffer_size);
             int read = -1;
             read = fatfs_read_file_at_pos(part->file_name, payload, to_read, written);
             if (read <= 0)
             {
-                DEBUG_ERROR("SDCARD read file error\r\n");
+                DEBUG_ERROR("Flash rom read file error\r\n");
                 retry--;
                 if (retry == 0)
                 {
@@ -266,6 +268,7 @@ esp_loader_error_t flash_binary_stm32(void *config, partition_attr_t *part)
                 tmp_size = part->size;
                 written = 0;
                 addr = part->addr;
+                continue;
             }
             else
             {
@@ -274,7 +277,11 @@ esp_loader_error_t flash_binary_stm32(void *config, partition_attr_t *part)
                 written += to_read;
 
                 int progress = (int)(((float)written / part->size) * 100);
+                if (progress != last_progress)
+                {
                 DEBUG_INFO("Port[%u] Progress: %d %%\r\n", ((esp_loader_config_t*)config)->uart_addr, progress);
+                last_progress = progress;
+                }
                 fflush(stdout);
             }
         };
@@ -296,6 +303,7 @@ esp_loader_error_t flash_binary_stm32(void *config, partition_attr_t *part)
         DEBUG_INFO("Port[%u] Flash verified\r\n", ((esp_loader_config_t*)config)->uart_addr);
         break;
     #endif
+	break;
     }
 
     return ESP_LOADER_SUCCESS;
